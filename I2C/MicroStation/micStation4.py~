@@ -3,12 +3,13 @@
 
 # Imports from mraa and upm libraries
 #------------------------------------
-import mraa
+import mraa, upm
 import thread, time, math
 
-import pyupm_mcp9808
-import pyupm_bmp280
-import pyupm_tsl2561
+from upm import pyupm_mcp9808 as mcp9808
+from upm import pyupm_bmp280 as bmp280
+from upm import pyupm_tsl2561 as tsl2561
+from upm import pyupm_si114x as si1145
 
 # Constant declarations
 #----------------------
@@ -17,6 +18,7 @@ bus1 = 0
 mcpAddr = 0x18
 bmeAddr = 0x77
 tslAddr = 0x39
+siAddr = 0x60
 
 localAlt = 156.5
 UPPER_TEMP = 0x02
@@ -24,12 +26,13 @@ LOWER_TEMP = 0x03
 CRIT_TEMP = 0x04
 
 # create sensors on the bus 1
-mcp = pyupm_mcp9808.MCP9808(bus1)
-bme = pyupm_bmp280.BME280(bus1)
-#tsl = pyupm_tsl2561.TSL2561(bus1)
-tsl = pyupm_tsl2561.TSL2561(bus1, tslAddr)
-#mcp = pyupm_mcp9808.MCP9808(bus1, mcpAddr)
-#bme = pyupm_bmp280.BME280(bus1, bmeAddr)
+mcp = mcp9808.MCP9808(bus1)
+bme = bmp280.BME280(bus1)
+#tsl = tsl2561.TSL2561(bus1)
+tsl = tsl2561.TSL2561(bus1, tslAddr)
+#mcp = mcp9808.MCP9808(bus1, mcpAddr)
+#bme = bmp280.BME280(bus1, bmeAddr)
+uv = si1145.SI114X(bus1, siAddr)
 
 #Functions
 #---------
@@ -88,14 +91,22 @@ def mes_mcpTemp():
 	return (mcpTemp)
 
 # TSL2561
-#*******
+#********
 def mes_tslLux() :
 	lux = tsl.getLux ()
 	return(lux)
 
+#SI1145
+#******
+def mes_uv() :
+	uvIndex = uv.getUVIndex()
+	return(uvIndex)
+
 #Activate or test some sensors
 #---------------------
 mcp.shutDown(False)
+uv.initialize()
+
 	
 # Main function
 ###############	
@@ -214,14 +225,16 @@ def measureMeteoParams():
 			hygroBME = bme.getHumidity()
 			seaLevelPress = convertSeaLevel (pressBME)
 			lux = mes_tslLux()
+			uv.update()
+			index = mes_uv()
 			if nbmes == 0 :
-				print 'Intensité Lumineuse : \tHumid(BME) : \tTemp(MCP) : \tTemp(BME) : \tPress(BME) : \tPress(SealevelBME) : ' 
+				print 'Intensité Lumineuse : \tHumid(BME) : \tTemp(MCP) : \tTemp(BME) : \tPress(BME) : \tPress(SealevelBME) : \tUV Index :' 
 				nbmes += 1
 			elif nbmes == 9 :
 				nbmes = 0
 			else :
 				nbmes += 1
-			print '%.2f\t\t' %lux + '%2.1f\t\t' %hygroBME + '%.4f °C\t' %tempHR +  '%.2f °C\t' %tempBME + '%.2f hPa\t' %pressBME + '%.2f hPa\t' %seaLevelPress
+			print '%.2f\t\t\t' %lux + '%2.1f\t\t' %hygroBME + '%.4f °C\t' %tempHR +  '%.2f °C\t' %tempBME + '%.2f hPa\t' %pressBME + '%.2f hPa\t\t\t' %seaLevelPress + '%.2f\t' %index
 			
 			time.sleep (5)
 	else :
